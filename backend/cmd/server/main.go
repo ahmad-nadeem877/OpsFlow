@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"opsflow/internal/helpers"
 	users "opsflow/internal/users"
 
 	"github.com/gin-gonic/gin"
@@ -16,9 +17,15 @@ func main() {
 	r := setupRoutes()
 	runMigration()
 
+	if err := helpers.ConnectToDatabase("127.0.0.1", "5432", "postgres", "postgres", "appdb"); err != nil {
+		log.Fatalf("failed to connect to database: %v", err)
+	}
+	helpers.Ping()
+
 	if err := r.Run(":8080"); err != nil {
 		log.Fatalf("failed to run server: %v", err)
 	}
+
 }
 
 func setupRoutes() *gin.Engine {
@@ -36,7 +43,7 @@ func setupRoutes() *gin.Engine {
 
 func runMigration() {
 	m, err := migrate.New(
-		"file://../../migrations",
+		"file://./migrations",
 		"postgres://postgres:postgres@localhost:5432/appdb?sslmode=disable",
 	)
 	if err != nil {
