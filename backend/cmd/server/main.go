@@ -37,6 +37,7 @@ func setupRoutes() *gin.Engine {
 		})
 	})
 	users.SetupUserRoutes(r.Group("/users"))
+	users.SetupAuthRoutes(r.Group("/auth"))
 
 	return r
 }
