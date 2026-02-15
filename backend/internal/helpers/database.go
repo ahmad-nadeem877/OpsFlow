@@ -75,6 +75,16 @@ func GetUserByEmail(email string) (UserByEmail, error) {
 	return u, nil
 }
 
+// GetUserByID returns a user by id without password_hash (for auth context / me).
+func GetUserByID(id string) (models.User, error) {
+	var u models.User
+	err := DB.Get(&u, "SELECT id, email, created_at, email_verified, is_active FROM users WHERE id = $1", id)
+	if err != nil {
+		return models.User{}, err
+	}
+	return u, nil
+}
+
 func CreateAccount(user models.User) (models.User, error) {
 	query := "INSERT INTO users (email, password_hash, email_verified, is_active) VALUES (:email, :password, :email_verified, :is_active) returning id, email, created_at, email_verified, is_active"
 

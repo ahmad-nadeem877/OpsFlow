@@ -109,6 +109,44 @@ func Login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "login successful"})
 }
 
+const ContextKey = "user"
+
+// userResponse is the authenticated user without password hash.
+type userResponse struct {
+	Id            string    `json:"id"`
+	Email         string    `json:"email"`
+	CreatedAt     time.Time `json:"created_at"`
+	EmailVerified bool      `json:"email_verified"`
+	IsActive      bool      `json:"is_active"`
+}
+
+func CurrentUser(c *gin.Context) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("[CurrentUser] Panic! Recovered", string(debug.Stack()), r)
+		}
+	}()
+
+	val, exists := c.Get(string(ContextKey))
+	if !exists || val == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
+		return
+	}
+	user, ok := val.(*models.User)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid user in context"})
+		return
+	}
+	// Return user without password
+	c.JSON(http.StatusOK, userResponse{
+		Id:            user.Id,
+		Email:         user.Email,
+		CreatedAt:     user.CreatedAt,
+		EmailVerified: user.EmailVerified,
+		IsActive:      user.IsActive,
+	})
+}
+
 func Logout(c *gin.Context) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -119,6 +157,11 @@ func Logout(c *gin.Context) {
 	// Clear the token cookie (same name and path as Login)
 	c.SetCookie(jwtCookieName, "", -1, "/", "", false, true)
 	c.JSON(http.StatusOK, gin.H{"message": "logged out successfully"})
+}
+
+// GetJWTSecret returns the JWT signing secret (used by middleware).
+func GetJWTSecret() string {
+	return getJWTSecret()
 }
 
 func getJWTSecret() string {
