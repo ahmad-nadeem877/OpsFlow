@@ -5,6 +5,7 @@ import (
 	"log"
 	"opsflow/internal/models"
 	"runtime/debug"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -35,7 +36,12 @@ func connectDb() error {
 
 	dbinfo := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", DbInfo.Host, DbInfo.Port, DbInfo.User, DbInfo.Password, DbInfo.DbName)
 	var err error
-	DB, err = sqlx.Open("postgres", dbinfo)
+	DB, err = sqlx.Connect("postgres", dbinfo)
+
+	DB.SetMaxOpenConns(100)
+	DB.SetMaxIdleConns(10)
+	DB.SetConnMaxLifetime(time.Hour)
+	DB.SetConnMaxIdleTime(10 * time.Minute)
 
 	return err
 }

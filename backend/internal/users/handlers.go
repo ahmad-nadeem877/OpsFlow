@@ -3,10 +3,11 @@ package users
 import (
 	"log"
 	"net/http"
+	"opsflow/internal/config"
 	"opsflow/internal/helpers"
 	"opsflow/internal/models"
-	"os"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -32,7 +33,17 @@ func Signup(c *gin.Context) {
 		return
 	}
 
-	hashedPassword, _ := HashPassword(newUser.Password)
+	// PASSWORD VALIDATIONS
+	if len(newUser.Password) <= 8 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: Password must be greater than 8 characters"})
+		return
+	}
+
+	hashedPassword, err := HashPassword(strings.TrimSpace(newUser.Password))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request: failed to encrypt password"})
+		return
+	}
 	newUser.Password = hashedPassword
 
 	user, err := helpers.CreateAccount(newUser)
@@ -42,7 +53,7 @@ func Signup(c *gin.Context) {
 	}
 
 	// jsonObj, err := json.Marshal(user)
-	c.JSON(http.StatusBadRequest, user)
+	c.JSON(http.StatusCreated, user)
 }
 
 // LoginRequest is the request body for login (email and password).
@@ -60,7 +71,7 @@ type jwtClaims struct {
 
 const (
 	jwtCookieName = "token"
-	jwtExpiry     = 24 * time.Hour
+	jwtExpiry     = 1 * time.Hour
 )
 
 func Login(c *gin.Context) {
@@ -88,7 +99,7 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	secret := getJWTSecret()
+	secret := GetJWTSecret()
 	claims := jwtClaims{
 		UserID: user.Id,
 		Email:  user.Email,
@@ -161,13 +172,10 @@ func Logout(c *gin.Context) {
 
 // GetJWTSecret returns the JWT signing secret (used by middleware).
 func GetJWTSecret() string {
-	return getJWTSecret()
-}
-
-func getJWTSecret() string {
-	if s := os.Getenv("JWT_SECRET"); s != "" {
-		return s
+	if config.AppConfig != nil {
+		return config.AppConfig.JWTSecret
 	}
+	// Fallback if config not loaded (shouldn't happen in normal flow)
 	return "opsflow-dev-secret"
 }
 

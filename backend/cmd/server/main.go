@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"opsflow/internal/config"
 	"opsflow/internal/helpers"
 	users "opsflow/internal/users"
 
@@ -13,16 +15,22 @@ import (
 )
 
 func main() {
+	// Load configuration from .env file (must be first)
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatalf("failed to load config: %v", err)
+	}
 
 	r := setupRoutes()
-	runMigration()
+	runMigration(cfg)
 
-	if err := helpers.ConnectToDatabase("127.0.0.1", "5432", "postgres", "postgres", "appdb"); err != nil {
+	if err := helpers.ConnectToDatabase(cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName); err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 	helpers.Ping()
 
-	if err := r.Run(":8080"); err != nil {
+	serverAddr := fmt.Sprintf(":%s", cfg.ServerPort)
+	if err := r.Run(serverAddr); err != nil {
 		log.Fatalf("failed to run server: %v", err)
 	}
 
@@ -42,11 +50,9 @@ func setupRoutes() *gin.Engine {
 	return r
 }
 
-func runMigration() {
-	m, err := migrate.New(
-		"file://./migrations",
-		"postgres://postgres:postgres@localhost:5432/appdb?sslmode=disable",
-	)
+func runMigration(cfg *config.Config) {
+	migrationSource := fmt.Sprintf("file://%s", cfg.MigrationPath)
+	m, err := migrate.New(migrationSource, cfg.GetMigrationDSN())
 	if err != nil {
 		log.Fatal(err)
 	}
